@@ -301,30 +301,34 @@
   line-height: 1.6;
 }
 
-/* ─── In-game overlays (host + joiner) ──────────────────────────── */
-#host-overlay, #joiner-ui {
-  position: fixed;
-  inset: 0;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 8888;
-  font-family: 'Arial Black', sans-serif;
-}
-
+/* ─── Host banner (tiny, non-blocking) ──────────────────────────── */
 #host-overlay {
-  background: rgba(0,0,0,.72);
-  pointer-events: none; /* game canvas still clickable */
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 18, 30, 0.85);
+  border: 1px solid rgba(255, 208, 0, 0.35);
+  border-radius: 24px;
+  padding: 8px 22px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  z-index: 8888;
+  pointer-events: none; /* never blocks game interaction */
+  font-family: 'Arial Black', sans-serif;
+  white-space: nowrap;
 }
-#host-overlay.show { display: flex; pointer-events: auto; }
+#host-overlay.show { display: flex; }
 
 #host-overlay .hw-title {
-  font-size: 22px;
+  font-size: 13px;
   color: #ffd000;
-  letter-spacing: 3px;
-  margin-bottom: 16px;
+  letter-spacing: 2px;
 }
+
+/* small dots variant (host banner) */
+.dots.sm span { width: 7px; height: 7px; }
 
 #joiner-ui { background: #000; }
 #joiner-ui.show { display: flex; }

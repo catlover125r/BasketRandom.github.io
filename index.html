@@ -14,57 +14,58 @@
 <body>
 
 <!-- ════════════════════════════════════════════════════════
-     LOBBY OVERLAY  (hidden once a mode is selected)
+     GAME — loads immediately so it's running behind the overlay
+════════════════════════════════════════════════════════ -->
+<script src="box2d.wasm.js"></script>
+<script src="scripts/supportcheck.js"></script>
+<script src="scripts/offlineclient.js"></script>
+<script src="scripts/main.f.js"></script>
+<script src="scripts/register-sw.js"></script>
+
+<!-- ════════════════════════════════════════════════════════
+     LOBBY OVERLAY
+     Shows on top of the game's own menu.
+     Handles 2-player selection only — 1-player just closes this.
 ════════════════════════════════════════════════════════ -->
 <div id="lobby-overlay">
 
-  <!-- Logo -->
   <div class="lobby-logo">
     <h1>BASKET RANDOM</h1>
-    <div class="tagline">Choose your mode</div>
   </div>
 
-  <!-- ── Screen: Main menu ─────────────────────────────── -->
+  <!-- ── Screen: 2-player choice (the main/only screen) ── -->
   <div id="ls-main" class="lscreen active">
-    <button class="lbtn" onclick="Lobby.startLocal()">1 PLAYER</button>
-    <button class="lbtn" onclick="Lobby.show2PChoice()">2 PLAYERS</button>
-  </div>
-
-  <!-- ── Screen: 2-Player choice ───────────────────────── -->
-  <div id="ls-2p-choice" class="lscreen">
-    <h2>2 Players</h2>
-    <button class="lbtn"      onclick="Lobby.startLocal()">ONE COMPUTER</button>
+    <h2>2 PLAYERS</h2>
     <button class="lbtn blue" onclick="Lobby.showOnlineOptions()">ONLINE</button>
-    <button class="lbtn ghost" onclick="Lobby.showScreen('main')">← Back</button>
+    <button class="lbtn"      onclick="Lobby.startLocal()">ONE COMPUTER</button>
+    <button class="lbtn ghost" onclick="Lobby.closeLobby()">✕ 1 Player / Close</button>
   </div>
 
   <!-- ── Screen: Online options ────────────────────────── -->
   <div id="ls-online" class="lscreen">
-    <h2>Online</h2>
+    <h2>ONLINE</h2>
     <button class="lbtn"      onclick="Lobby.createRoom()">CREATE ROOM</button>
     <button class="lbtn blue" onclick="Lobby.showRoomList()">JOIN ROOM</button>
-    <button class="lbtn ghost" onclick="Lobby.showScreen('2p-choice')">← Back</button>
+    <button class="lbtn ghost" onclick="Lobby.showScreen('main')">← Back</button>
   </div>
 
-  <!-- ── Screen: Create Room (waiting) ─────────────────── -->
+  <!-- ── Screen: Create Room ───────────────────────────── -->
   <div id="ls-create-room" class="lscreen">
     <h2>Waiting for Player 2</h2>
     <div class="room-info-box">
       <div class="room-label">Your Room</div>
       <div class="room-code" id="lobby-room-code">······</div>
-      <div class="room-hint" id="create-status-text">
-        Creating room…
-      </div>
+      <div class="room-hint" id="create-status-text">Creating room…</div>
     </div>
     <div class="dots"><span></span><span></span><span></span></div>
     <button class="lbtn ghost" onclick="Lobby.cancelRoom()">Cancel</button>
   </div>
 
-  <!-- ── Screen: Join Room (room list) ─────────────────── -->
+  <!-- ── Screen: Room List ─────────────────────────────── -->
   <div id="ls-room-list" class="lscreen">
     <h2>Join a Room</h2>
     <div class="room-list-header">
-      <div></div><!-- spacer -->
+      <div></div>
       <button class="refresh-btn" onclick="Lobby.loadRoomList()">↺ Refresh</button>
     </div>
     <div id="rooms-list">
@@ -85,12 +86,11 @@
 
 
 <!-- ════════════════════════════════════════════════════════
-     HOST OVERLAY  (shows "waiting" while joiner streams in)
+     HOST BANNER  (tiny non-blocking — host can play normally)
 ════════════════════════════════════════════════════════ -->
 <div id="host-overlay">
-  <div class="hw-title">Waiting for Player 2…</div>
-  <div class="dots"><span></span><span></span><span></span></div>
-  <a href="index.html" class="back-link">← Back to Lobby</a>
+  <span class="hw-title">Waiting for Player 2…</span>
+  <div class="dots sm"><span></span><span></span><span></span></div>
 </div>
 
 
@@ -104,33 +104,24 @@
     </div>
     <div class="dots"><span></span><span></span><span></span></div>
   </div>
-  <video id="joiner-video" autoplay playsinline></video>
-  <div class="controls-hint">↑ Arrow = Jump</div>
+  <video id="joiner-video" autoplay playsinline muted></video>
+  <div class="controls-hint">↑ Arrow = Jump &nbsp;|&nbsp; Tap screen = Jump</div>
 </div>
 
 
 <!-- ════════════════════════════════════════════════════════
      SCRIPTS
 ════════════════════════════════════════════════════════ -->
-
-<!-- Prevent arrow/space key page scroll (game needs them) -->
 <script>
 window.addEventListener('keydown', function(e) {
   if ([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) e.preventDefault();
 }, false);
 </script>
 
-<!-- Firebase (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-<!-- PeerJS (WebRTC) -->
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-
-<!-- Your Firebase config (fill in firebase-config.js!) -->
 <script src="firebase-config.js"></script>
-
-<!-- Lobby logic -->
 <script src="lobby.js"></script>
 
 </body>

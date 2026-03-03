@@ -85,30 +85,8 @@ const Lobby = (() => {
     return id;
   }
 
-  // ── Load game scripts (lazy) ──────────────────────────────────
-  function loadGame() {
-    if (gameLoaded) return Promise.resolve();
-    gameLoaded = true;
-    return new Promise((resolve, reject) => {
-      const srcs = [
-        'box2d.wasm.js',
-        'scripts/supportcheck.js',
-        'scripts/offlineclient.js',
-        'scripts/main.f.js',
-        'scripts/register-sw.js',
-      ];
-      let i = 0;
-      function next() {
-        if (i >= srcs.length) { resolve(); return; }
-        const s = document.createElement('script');
-        s.src = srcs[i++];
-        s.onload = next;
-        s.onerror = () => { console.warn('Script load error:', s.src); next(); };
-        document.body.appendChild(s);
-      }
-      next();
-    });
-  }
+  // ── Game scripts load with the page now — no lazy load needed ───
+  function loadGame() { return Promise.resolve(); }
 
   // ── Find the game canvas (polls until present) ────────────────
   function waitForCanvas(cb, tries) {
@@ -123,11 +101,14 @@ const Lobby = (() => {
   //  PUBLIC API — called from HTML onclick attributes
   // ═══════════════════════════════════════════════════════════════
 
-  // ── 1-Player / One Computer ───────────────────────────────────
+  // ── Close lobby (One Computer or 1 Player) ───────────────────
   function startLocal() {
-    role = 'local';
     hideLobby();
-    loadGame();
+  }
+
+  // Alias used by "✕ 1 Player / Close" button
+  function closeLobby() {
+    hideLobby();
   }
 
   // ── Show 2-player choice ──────────────────────────────────────
@@ -262,13 +243,23 @@ const Lobby = (() => {
 
     peer.on('call', call => {
       mediaConn = call;
-      call.answer();
+      call.answer(); // joiner sends no video back
       call.on('stream', stream => {
         const video = document.getElementById('joiner-video');
         video.srcObject = stream;
-        video.play();
+        video.play().catch(() => {
+          // Some browsers need a user gesture; add a tap-to-start fallback
+          document.getElementById('joiner-waiting').innerHTML =
+            '<button onclick="document.getElementById(\'joiner-video\').play();this.parentElement.style.display=\'none\'" ' +
+            'style="padding:14px 28px;font-size:18px;font-family:Arial Black,sans-serif;' +
+            'background:#ff7f00;color:#fff;border:none;border-radius:8px;cursor:pointer;">' +
+            'TAP TO START</button>';
+          document.getElementById('joiner-waiting').style.display = 'flex';
+        });
         video.style.display = 'block';
         document.getElementById('joiner-waiting').style.display = 'none';
+        // Tell host we're receiving — they can hide their banner
+        if (dataConn && dataConn.open) dataConn.send({ type: 'ready' });
       });
     });
 
@@ -298,62 +289,70 @@ const Lobby = (() => {
   function startAsHost() {
     hideLobby();
 
-    // Show "waiting for joiner video connection" overlay
-    const hostOverlay = document.getElementById('host-overlay');
-    if (hostOverlay) {
-      hostOverlay.classList.add('show');
-      hostOverlay.querySelector('.hw-title').textContent =
-        'Player 2 is connecting…';
-    }
+    // Show tiny non-blocking banner while waiting for video to stream
+    document.getElementById('host-overlay').classList.add('show');
 
-    // Load game first
-    loadGame().then(() => {
-      // Once canvas exists, capture + stream it
-      waitForCanvas(canvas => {
-        if (hostOverlay) {
-          hostOverlay.querySelector('.hw-title').textContent =
-            'Game ready! Player 2 joining…';
-        }
+    // Game is already loaded — find the canvas and start streaming
+    waitForCanvas(canvas => {
+      streamCanvasToJoiner(canvas);
 
-        streamCanvasToJoiner(canvas);
-
-        // Receive joiner's key events and dispatch them locally
-        dataConn.on('data', msg => {
-          if (msg.type === 'kd' || msg.type === 'ku') {
-            const evType = msg.type === 'kd' ? 'keydown' : 'keyup';
-            document.dispatchEvent(
-              new KeyboardEvent(evType, {
-                keyCode: msg.kc, which: msg.kc,
-                key: msg.k, bubbles: true, cancelable: true,
-              })
-            );
-          } else if (msg.type === 'ready') {
-            // Joiner received the stream — hide our waiting overlay
-            if (hostOverlay) hostOverlay.classList.remove('show');
-          }
-        });
-
-        // Block the host's own P2 key (↑) from triggering locally
-        document.addEventListener('keydown', e => {
-          if (e.keyCode === P2_KEY) e.stopImmediatePropagation();
-        }, true);
-        document.addEventListener('keyup', e => {
-          if (e.keyCode === P2_KEY) e.stopImmediatePropagation();
-        }, true);
+      // Receive joiner's key events and dispatch them into the game
+      dataConn.on('data', msg => {
+        if (msg.type !== 'kd' && msg.type !== 'ku') return;
+        document.dispatchEvent(new KeyboardEvent(
+          msg.type === 'kd' ? 'keydown' : 'keyup',
+          { keyCode: msg.kc, which: msg.kc, key: msg.k, bubbles: true, cancelable: true }
+        ));
       });
+
+      // Prevent host's own ↑ key from controlling P2 (only joiner controls P2)
+      document.addEventListener('keydown', e => {
+        if (e.keyCode === P2_KEY) e.stopImmediatePropagation();
+      }, true);
+      document.addEventListener('keyup', e => {
+        if (e.keyCode === P2_KEY) e.stopImmediatePropagation();
+      }, true);
     });
   }
 
   function streamCanvasToJoiner(canvas) {
+    // WebGL canvases clear their backbuffer each frame, so captureStream()
+    // often gives empty frames. Fix: mirror every rAF into a plain 2D canvas,
+    // then stream that.
+    const mirror = document.createElement('canvas');
+    mirror.width  = canvas.width  || window.innerWidth;
+    mirror.height = canvas.height || window.innerHeight;
+    const ctx = mirror.getContext('2d');
+    let active = true;
+
+    (function copyFrame() {
+      if (!active) return;
+      if (mirror.width  !== canvas.width)  mirror.width  = canvas.width;
+      if (mirror.height !== canvas.height) mirror.height = canvas.height;
+      try { ctx.drawImage(canvas, 0, 0); } catch (_) {}
+      requestAnimationFrame(copyFrame);
+    })();
+
     let stream;
     try {
-      stream = canvas.captureStream(30);
+      stream = mirror.captureStream(30);
     } catch (e) {
       console.error('captureStream failed:', e);
+      active = false;
       return;
     }
+
     if (!peer || !dataConn) return;
     mediaConn = peer.call(dataConn.peer, stream);
+
+    // Hide host banner as soon as the media call is established
+    mediaConn.on('stream', () => hideHostOverlay());
+    mediaConn.on('close',  () => { active = false; });
+  }
+
+  function hideHostOverlay() {
+    const el = document.getElementById('host-overlay');
+    if (el) el.classList.remove('show');
   }
 
   function startAsJoiner() {
@@ -407,6 +406,7 @@ const Lobby = (() => {
     show2PChoice,
     showOnlineOptions,
     startLocal,
+    closeLobby,
     createRoom,
     cancelRoom,
     showRoomList,
