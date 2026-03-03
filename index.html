@@ -1,43 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Basket Random Unblocked</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+  <meta charset="UTF-8">
+  <title>Basket Random</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0,
+        maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+  <meta name="generator" content="Construct 3">
+  <link rel="manifest"   href="appmanifest.json">
+  <link rel="icon"       href="favicon.ico">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="lobby.css">
+</head>
+<body>
 
-<meta name="generator" content="Construct 3">
+<!-- ════════════════════════════════════════════════════════
+     LOBBY OVERLAY  (hidden once a mode is selected)
+════════════════════════════════════════════════════════ -->
+<div id="lobby-overlay">
 
-	<link rel="manifest" href="appmanifest.json">
+  <!-- Logo -->
+  <div class="lobby-logo">
+    <h1>BASKET RANDOM</h1>
+    <div class="tagline">Choose your mode</div>
+  </div>
+
+  <!-- ── Screen: Main menu ─────────────────────────────── -->
+  <div id="ls-main" class="lscreen active">
+    <button class="lbtn" onclick="Lobby.startLocal()">1 PLAYER</button>
+    <button class="lbtn" onclick="Lobby.show2PChoice()">2 PLAYERS</button>
+  </div>
+
+  <!-- ── Screen: 2-Player choice ───────────────────────── -->
+  <div id="ls-2p-choice" class="lscreen">
+    <h2>2 Players</h2>
+    <button class="lbtn"      onclick="Lobby.startLocal()">ONE COMPUTER</button>
+    <button class="lbtn blue" onclick="Lobby.showOnlineOptions()">ONLINE</button>
+    <button class="lbtn ghost" onclick="Lobby.showScreen('main')">← Back</button>
+  </div>
+
+  <!-- ── Screen: Online options ────────────────────────── -->
+  <div id="ls-online" class="lscreen">
+    <h2>Online</h2>
+    <button class="lbtn"      onclick="Lobby.createRoom()">CREATE ROOM</button>
+    <button class="lbtn blue" onclick="Lobby.showRoomList()">JOIN ROOM</button>
+    <button class="lbtn ghost" onclick="Lobby.showScreen('2p-choice')">← Back</button>
+  </div>
+
+  <!-- ── Screen: Create Room (waiting) ─────────────────── -->
+  <div id="ls-create-room" class="lscreen">
+    <h2>Waiting for Player 2</h2>
+    <div class="room-info-box">
+      <div class="room-label">Your Room</div>
+      <div class="room-code" id="lobby-room-code">······</div>
+      <div class="room-hint" id="create-status-text">
+        Creating room…
+      </div>
+    </div>
+    <div class="dots"><span></span><span></span><span></span></div>
+    <button class="lbtn ghost" onclick="Lobby.cancelRoom()">Cancel</button>
+  </div>
+
+  <!-- ── Screen: Join Room (room list) ─────────────────── -->
+  <div id="ls-room-list" class="lscreen">
+    <h2>Join a Room</h2>
+    <div class="room-list-header">
+      <div></div><!-- spacer -->
+      <button class="refresh-btn" onclick="Lobby.loadRoomList()">↺ Refresh</button>
+    </div>
+    <div id="rooms-list">
+      <div class="rooms-empty">Loading rooms…</div>
+    </div>
+    <button class="lbtn ghost" onclick="Lobby.showScreen('online')">← Back</button>
+  </div>
+
+  <!-- ── Screen: Connecting ────────────────────────────── -->
+  <div id="ls-connecting" class="lscreen">
+    <h2>Connecting</h2>
+    <div class="dots"><span></span><span></span><span></span></div>
+    <div id="connect-status-text">Connecting to host…</div>
+    <button class="lbtn ghost" onclick="Lobby.showScreen('room-list')">Cancel</button>
+  </div>
+
+</div><!-- /#lobby-overlay -->
 
 
-<link rel="stylesheet" href="style.css">
+<!-- ════════════════════════════════════════════════════════
+     HOST OVERLAY  (shows "waiting" while joiner streams in)
+════════════════════════════════════════════════════════ -->
+<div id="host-overlay">
+  <div class="hw-title">Waiting for Player 2…</div>
+  <div class="dots"><span></span><span></span><span></span></div>
+  <a href="index.html" class="back-link">← Back to Lobby</a>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════
+     JOINER UI  (fullscreen video of host's game)
+════════════════════════════════════════════════════════ -->
+<div id="joiner-ui">
+  <div id="joiner-waiting">
+    <div style="color:#667;font-family:Arial,sans-serif;font-size:15px;letter-spacing:1px;">
+      Receiving game stream…
+    </div>
+    <div class="dots"><span></span><span></span><span></span></div>
+  </div>
+  <video id="joiner-video" autoplay playsinline></video>
+  <div class="controls-hint">↑ Arrow = Jump</div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════════════════════════ -->
+
+<!-- Prevent arrow/space key page scroll (game needs them) -->
 <script>
-	window.location="https://ubg98.github.io/BasketRandom/";
-</script>
-<script>
-window.addEventListener("keydown", function(e) {
-    // space and arrow keys
-    if([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) {
-        e.preventDefault();
-    }
+window.addEventListener('keydown', function(e) {
+  if ([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) e.preventDefault();
 }, false);
 </script>
 
-</head>
-<body>
-<div id="fb-root"></div>
-	<script src="box2d.wasm.js"></script>
-	<noscript>
-		<div id="notSupportedWrap">
-			<h2 id="notSupportedTitle">This content requires JavaScript</h2>
-			<p class="notSupportedMessage">JavaScript appears to be disabled. Please enable it to view this content.</p>
-			<p class="notSupportedMessage">This game was developed with Construct. <a href="https://www.construct.net/en">Build your own games</a></p>
-		</div>
-	</noscript>
-	<script src="scripts/supportcheck.js"></script>
-	<script src="scripts/offlineclient.js"></script>
-	<script src="scripts/main.f.js"></script>
-	<script src="scripts/register-sw.js"></script>
-	<script src="js/analytics_ubg_v1_4.js"></script>
+<!-- Firebase (compat SDK) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<!-- PeerJS (WebRTC) -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<!-- Your Firebase config (fill in firebase-config.js!) -->
+<script src="firebase-config.js"></script>
+
+<!-- Lobby logic -->
+<script src="lobby.js"></script>
+
 </body>
 </html>
