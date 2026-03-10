@@ -29,10 +29,3 @@ Open the game, select **2 Player**, and share the keyboard.
 2. The other player selects **Online** → **Join Room**, finds the room, and connects.
 3. The host's screen is streamed; the joiner sends inputs back in real time.
 
-## Running Locally
-
-No build step needed — just open `index.html` in a browser, or serve with any static file server:
-
-```bash
-npx serve .
-```
